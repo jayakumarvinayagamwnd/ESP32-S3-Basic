@@ -2,13 +2,11 @@
 
 #include <cstdint>
 
-#include "driver/rmt_tx.h"
-
 namespace ledmanager {
 
 class Led {
 public:
-    explicit Led(gpio_num_t gpio = GPIO_NUM_48);
+    explicit Led(int gpio = 48);
     ~Led();
 
     Led(const Led&) = delete;
@@ -18,8 +16,8 @@ public:
     void off();
 
 private:
-    rmt_channel_handle_t channel_ = nullptr;
-    rmt_encoder_handle_t encoder_ = nullptr;
+    void* channel_ = nullptr;
+    void* encoder_ = nullptr;
 };
 
 }  // namespace ledmanager

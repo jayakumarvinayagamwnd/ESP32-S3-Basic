@@ -1,37 +1,109 @@
 
-This directory is intended for project header files.
+ESP32-S3-Basic Project README
 
-A header file is a file containing C declarations and macro definitions
-to be shared between several project source files. You request the use of a
-header file in your project source file (C, C++, etc) located in `src` folder
-by including it, with the C preprocessing directive `#include'.
+Overview
+- ESP-IDF + PlatformIO project for ESP32-S3.
+- Hosts a local web dashboard for:
+	- Wi-Fi/device status
+	- WS2812 LED control
+	- Multi-servo control through PCA9685
+- Includes quick per-servo tiny self-tests designed to be gentle on linkages.
 
-```src/main.c
+Current Feature Set
+- Wi-Fi manager with retry and alternate-network fallback.
+- Web server with dynamic dashboard and JSON API endpoints.
+- LED panel:
+	- Color select: red, green, blue, off
+	- Auto-off timer after 60 seconds for active colors
+- Servo panel:
+	- Servo 1..4 controls
+	- Angle range: 0..180 per servo
+	- Default servo startup angle: 0
+	- On dashboard load/refresh: all servos are forced to 0
+	- Tiny self-test button per servo: 0 -> 45 -> 0
 
-#include "header.h"
+Servo Channel Mapping
+- Servo 1 -> PCA9685 channel 0
+- Servo 2 -> PCA9685 channel 1
+- Servo 3 -> PCA9685 channel 2
+- Servo 4 -> PCA9685 channel 3
 
-int main (void)
-{
- ...
-}
-```
+Power And Wiring (Important)
+- PCA9685 logic power:
+	- VCC -> ESP32-S3 3.3V
+- PCA9685 servo power:
+	- V+ -> external 5V supply
+- I2C bus:
+	- SDA -> ESP32 GPIO 8
+	- SCL -> ESP32 GPIO 9
+- Grounding:
+	- ESP32 GND, PCA9685 GND, and external 5V GND must be common
+- OE (output enable):
+	- Keep OE low/enabled on PCA9685
 
-Including a header file produces the same results as copying the header file
-into each source file that needs it. Such copying would be time-consuming
-and error-prone. With a header file, the related declarations appear
-in only one place. If they need to be changed, they can be changed in one
-place, and programs that include the header file will automatically use the
-new version when next recompiled. The header file eliminates the labor of
-finding and changing all the copies as well as the risk that a failure to
-find one copy will result in inconsistencies within a program.
+Runtime startup logs include power sanity hints:
+- VCC=3.3V logic
+- V+=external 5V servo rail
+- Common ground requirement
 
-In C, the convention is to give header files names that end with `.h'.
+Web API Endpoints
 
-Read more about using header files in official GCC documentation:
+1) Device status
+- GET /api/status
+- Response example:
+	{"connected":true,"ssid":"MyWiFi","ip":"192.168.1.5"}
 
-* Include Syntax
-* Include Operation
-* Once-Only Headers
-* Computed Includes
+2) LED control
+- GET /api/led?color=red
+- GET /api/led?color=green
+- GET /api/led?color=blue
+- GET /api/led?color=off
+- Behavior:
+	- red/green/blue start auto-off timer (60s)
+	- off disables timer and turns LED off immediately
 
-https://gcc.gnu.org/onlinedocs/cpp/Header-Files.html
+3) Servo angle control
+- GET /api/servo?servo=1&angle=0
+- GET /api/servo?servo=2&angle=90
+- GET /api/servo?servo=3&angle=180
+- GET /api/servo?servo=4&angle=45
+- Validation:
+	- servo must be 1..4
+	- angle must be 0..180
+
+4) Per-servo tiny self-test
+- GET /api/servo/sweep?servo=1
+- GET /api/servo/sweep?servo=2
+- GET /api/servo/sweep?servo=3
+- GET /api/servo/sweep?servo=4
+- Motion profile:
+	- 0 -> 45 -> 0
+
+Build and Flash
+
+Build:
+	pio run -e esp32-s3-devkitm-1
+
+Upload:
+	pio run -e esp32-s3-devkitm-1 -t upload --upload-port COM5
+
+Serial monitor:
+	pio device monitor -b 115200 -p COM5
+
+Project Structure (high level)
+- src/main.cpp
+	- Starts Wi-Fi manager and web server
+- components/wifimanager/
+	- Wi-Fi connect logic and reconnection handling
+- components/webserver/
+	- Dashboard HTML
+	- HTTP endpoints for status/LED/servo/tiny self-test
+- components/ledmanager/
+	- WS2812 LED driver via RMT
+- components/servomanager/
+	- PCA9685 I2C driver and angle-to-PWM conversion
+
+Notes
+- The dashboard served by firmware is compiled from the embedded HTML header in components/webserver/index_html.hpp.
+- Keep components/webserver/index.html and components/webserver/index_html.hpp aligned when editing UI.
+- If servos do not move, check external 5V servo supply quality and common grounding first.
